@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dunkin' — My Availability</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --orange: #FF6B1A;
+    --orange-dim: #e05a0f;
+    --bg: #F2F2F7;
+    --surface: #FFFFFF;
+    --surface2: #F2F2F7;
+    --surface3: #E5E5EA;
+    --border: rgba(60,60,67,0.13);
+    --border-hi: rgba(60,60,67,0.2);
+    --text: #000000;
+    --text2: #3C3C43;
+    --muted: rgba(60,60,67,0.6);
+    --green: #34C759;
+    --green-bg: rgba(52,199,89,0.12);
+    --red: #FF3B30;
+    --red-bg: rgba(255,59,48,0.1);
+    --yellow: #FF9500;
+    --yellow-bg: rgba(255,149,0,0.1);
+    --blue: #007AFF;
+    --blue-bg: rgba(0,122,255,0.1);
+    --separator: rgba(60,60,67,0.29);
+    --ios-font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ios-font);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── iOS STATUS BAR SAFE AREA ── */
+  body { padding-top: env(safe-area-inset-top); }
+
+  /* ── HEADER — iOS Navigation Bar style ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(242,242,247,0.85);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 0.5px solid var(--separator);
+    padding: 12px 20px 10px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--orange);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(255,107,26,0.3);
+  }
+  .header-text h1 {
+    font-size: 17px; font-weight: 600;
+    color: var(--text); letter-spacing: -0.4px;
+  }
+  .header-text p { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 1100px; margin: 0 auto;
+    padding: 16px 16px 80px;
+  }
+
+  /* ── 3-COLUMN GRID ── */
+  #all-weeks-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  /* ── iOS CARDS ── */
+  .week-col {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04);
+    animation: fadeUp .3s ease both;
+    border: none;
+  }
+  .week-col:nth-child(2) { animation-delay: .07s; }
+  .week-col:nth-child(3) { animation-delay: .14s; }
+  .week-col.current-week {
+    border-top: 3px solid var(--orange);
+  }
+  .week-col.locked-week { opacity: .7; }
+
+  .panel {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border: none;
+    animation: fadeUp .3s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── iOS SECTION HEADER ── */
+  .panel-label {
+    font-size: 13px; font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 0.5px solid var(--separator);
+    display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap;
+  }
+  .panel-label span { color: var(--orange); }
+
+  /* ── iOS FORM INPUTS ── */
+  .name-row { display: flex; gap: 10px; }
+
+  input[type="text"], input[type="password"], input[type="tel"], select {
+    background: var(--surface2);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: var(--ios-font);
+    font-size: 16px; /* 16px prevents iOS zoom */
+    outline: none;
+    width: 100%;
+    transition: background .15s;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus {
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(0,122,255,0.2);
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  select option { font-size: 16px; }
+
+  /* ── iOS BUTTONS ── */
+  .btn {
+    background: var(--orange);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 13px 22px;
+    font-family: var(--ios-font);
+    font-weight: 600; font-size: 16px;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    -webkit-appearance: none;
+  }
+  .btn:active { opacity: .75; transform: scale(.97); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: var(--surface3);
+    color: var(--blue);
+    font-weight: 500;
+  }
+
+  .btn-green {
+    background: var(--green);
+    font-size: 16px; padding: 15px;
+    width: 100%; margin-top: 8px;
+    border-radius: 14px;
+    letter-spacing: -0.2px;
+  }
+
+  /* ── iOS LIST ROWS (availability grid) ── */
+  .avail-grid {
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border-radius: 12px;
+    overflow: hidden;
+    border: none;
+    gap: 0;
+  }
+  .day-row {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center; gap: 8px;
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--separator);
+  }
+  .day-row:last-child { border-bottom: none; }
+
+  .day-name {
+    font-family: var(--ios-font);
+    font-weight: 600; font-size: 12px;
+    color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.3px;
+    line-height: 1.2;
+  }
+  .day-name.busy { color: var(--red); }
+
+  .time-input-wrap { position: relative; }
+  .time-input-wrap input {
+    padding: 7px 10px;
+    font-size: 14px;
+    border-radius: 8px;
+    background: var(--surface2);
+  }
+  .time-input-wrap input.off-day {
+    color: var(--muted);
+    background: var(--surface2);
+    text-decoration: line-through;
+  }
+  .time-input-wrap input.changed {
+    background: rgba(255,149,0,0.08);
+    color: var(--yellow);
+  }
+
+  /* ── iOS TOGGLE (OFF button) ── */
+  .off-toggle {
+    background: var(--surface3);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: var(--ios-font);
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .off-toggle:active { opacity: .7; }
+  .off-toggle.is-off {
+    background: var(--red-bg);
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  /* ── iOS STATUS MESSAGES ── */
+  .status-box {
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 14px; line-height: 1.5; margin-top: 8px;
+    font-family: var(--ios-font);
+  }
+  .status-box.info    { background: var(--blue-bg);   color: var(--blue); }
+  .status-box.success { background: var(--green-bg);  color: #1a7a38; }
+  .status-box.error   { background: var(--red-bg);    color: var(--red); }
+  .status-box.warning { background: var(--yellow-bg); color: #b05900; }
+
+  /* ── SPINNER ── */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(0,0,0,.1);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── BADGE ── */
+  .last-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--green-bg);
+    border: none; border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px; color: #1a7a38;
+    font-family: var(--ios-font); font-weight: 500;
+    margin-bottom: 12px;
+  }
+
+  /* ── TEXTAREA ── */
+  textarea {
+    background: var(--surface2);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: var(--ios-font);
+    font-size: 15px;
+    width: 100%; resize: none; min-height: 64px; outline: none;
+    transition: background .15s;
+    -webkit-appearance: none;
+  }
+  textarea:focus { background: #fff; box-shadow: 0 0 0 3px rgba(0,122,255,0.2); }
+
+  /* ── DIVIDER ── */
+  .divider { height: 0.5px; background: var(--separator); margin: 12px 0; }
+
+  /* ── HIDDEN ── */
+  .hidden { display: none !important; }
+
+  /* ── SUCCESS SCREEN ── */
+  #success-screen { text-align: center; padding: 48px 20px; }
+  .big-check {
+    font-size: 64px; margin-bottom: 16px;
+    animation: pop .4s cubic-bezier(.175,.885,.32,1.275);
+  }
+  @keyframes pop { from{transform:scale(0)} to{transform:scale(1)} }
+  #success-screen h2 {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 24px; color: var(--green); margin-bottom: 10px;
+  }
+  #success-screen p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    #all-weeks-container { grid-template-columns: 1fr; }
+    main { padding: 12px 12px 80px; }
+  }
+  @media (max-width: 480px) {
+    .day-row { grid-template-columns: 44px 1fr auto; gap: 6px; }
+    main { padding: 12px 12px 80px; }
+    .week-col { padding: 14px; border-radius: 14px; }
+    .btn { font-size: 15px; border-radius: 12px; }
+    .btn-green { border-radius: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">🍩</div>
+  <div class="header-text">
+    <h1>My Availability</h1>
+    <p>Dunkin' · 2823 Western Ave</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ══ STEP 1: IDENTIFY ══ -->
+  <div class="panel" id="step-identify">
+    <div class="panel-label" style="font-size:11px;color:var(--muted)">👤 SIGN IN</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <select id="emp-select" style="font-size:16px">
+        <option value="">Loading employees...</option>
+      </select>
+      <div style="display:flex;align-items:center;justify-content:space-between;min-height:16px;padding:0 2px">
+        <div id="roster-status"></div>
+        <button onclick="loadRoster()" id="roster-refresh-btn"
+          style="background:none;border:none;color:var(--blue);font-size:13px;font-family:var(--ios-font);font-weight:500;cursor:pointer;padding:2px 4px;-webkit-tap-highlight-color:transparent">
+          ↻ Refresh
+        </button>
+      </div>
+      <input type="password" id="pin-input" maxlength="6" placeholder="Password"
+        style="letter-spacing:4px;font-size:18px;text-align:center"
+        onkeydown="if(event.key==='Enter')loadEmployee()"
+        autocomplete="off"/>
+      <button class="btn" id="load-btn" onclick="loadEmployee()" style="width:100%;border-radius:14px;font-size:16px;padding:15px">Continue →</button>
+    </div>
+    <div id="identify-status"></div>
+  </div>
+
+  <!-- ══ ALL WEEKS VIEW ══ -->
+  <div id="all-weeks-container" class="hidden"></div>
+
+  <!-- Show more weeks -->
+  <div id="show-more-wrap" class="hidden" style="text-align:center;margin-top:4px">
+    <button onclick="showMoreWeeks()"
+      style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px 24px;font-size:12px;cursor:pointer;font-family:'DM Mono',monospace">
+      Show more weeks ↓
+    </button>
+  </div>
+
+  <!-- ══ SUCCESS ══ -->
+  <div class="panel hidden" id="success-screen">
+    <div class="big-check">✅</div>
+    <h2>Submitted!</h2>
+    <p id="success-msg">Your availability has been saved.<br>Your manager will build the schedule and notify you.</p>
+    <div style="margin-top:24px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="location.reload()">Submit Another Week</button>
+      <button class="btn" onclick="location.reload()">Start Over</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIGURATION — update these two values
+// ════════════════════════════════════════════════════════════
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby3Iw45STJhTnc7IsEPVqfXr3r4TbxHtFReMcFU5HF-Isy789vYkwsgIpzJeJ1S-_UAjw/exec";
+// ^ Deploy your Apps Script as a Web App and paste the URL above
+
+// Roster is loaded dynamically from server — do not hardcode
+let ROSTER = []; // populated by loadRoster() on page init
+
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const DAY_KEYS = ["mon","tue","wed","thu","fri","sat","sun"];
+const BUSY = [3,4,5,6]; // Thu=3 Fri=4 Sat=5 Sun=6 (0=Mon)
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let state = {
+  emp: null,            // selected employee
+  week: null,           // selected week key "2026-04-07"
+  lastData: null,       // latest overall submission (fallback)
+  allWeeksByEmp: {},    // { empId: { "2026-04-07": {mon,tue,...} } } — per-employee per-week
+  origValues: [],       // original values before editing [7 days]
+  lockedWeeks: [],      // weeks locked by manager
+  enteredClockNum: "",  // clock number entered by employee for verification
+};
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// INIT — load roster from server dynamically
+// ════════════════════════════════════════════════════════════
+async function loadRoster() {
+  const sel = document.getElementById("emp-select");
+  const statusEl = document.getElementById("roster-status");
+  const refreshBtn = document.getElementById("roster-refresh-btn");
+
+  // Show loading state
+  sel.disabled = true;
+  if(refreshBtn) { refreshBtn.textContent = "↻ Loading..."; refreshBtn.disabled = true; }
+  sel.innerHTML = '<option value="">Loading employees...</option>';
+
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=getRoster`);
+    const data = await res.json();
+
+    if (data.ok && data.roster && data.roster.length > 0) {
+      ROSTER = data.roster;
+
+      // Populate dropdown
+      sel.innerHTML = '<option value="">Select your name</option>';
+      ROSTER.forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e.id;
+        opt.textContent = e.name;
+        sel.appendChild(opt);
+      });
+
+      // Show freshness indicator
+      const updatedAt = data.updatedAt ? new Date(data.updatedAt) : null;
+      const timeAgo = updatedAt ? getTimeAgo(updatedAt) : null;
+      if (statusEl && timeAgo) {
+        statusEl.innerHTML = `<span style="color:var(--green);font-size:12px;font-weight:500">✓ ${data.roster.length} employees · updated ${timeAgo}</span>`;
+      }
+
+      // Restore last selected employee
+      const saved = localStorage.getItem("dunkin_emp_id");
+      if (saved) sel.value = saved;
+
+    } else {
+      // Fall back to empty with error
+      sel.innerHTML = '<option value="">⚠ No roster found — sync from scheduler</option>';
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);font-size:12px">⚠ ${data.error || 'Roster not found'} — ask your manager to click Sync</span>`;
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">⚠ Could not load — check connection</option>';
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);font-size:12px">⚠ Could not reach server</span>`;
+  }
+
+  sel.disabled = false;
+  if(refreshBtn) { refreshBtn.textContent = "↻ Refresh"; refreshBtn.disabled = false; }
+}
+
+function getTimeAgo(date) {
+  const secs = Math.floor((new Date() - date) / 1000);
+  if (secs < 60)   return 'just now';
+  if (secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if (secs < 86400) return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
+
+// Start loading roster immediately
+loadRoster();
+
+// ════════════════════════════════════════════════════════════
+// WEEK HELPERS
+// ════════════════════════════════════════════════════════════
+function getMondayOf(d) {
+  const dt = new Date(d);
+  const day = dt.getDay();
+  dt.setDate(dt.getDate() + (day === 0 ? -6 : 1 - day));
+  dt.setHours(0,0,0,0); return dt;
+}
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function weekKey(d) {
+  // Use local date to avoid UTC timezone shift
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+function fmtRange(mon) {
+  const opts = {month:"short", day:"numeric"};
+  return mon.toLocaleDateString("en-US",opts) + " – " + addDays(mon,6).toLocaleDateString("en-US",opts);
+}
+
+// Build next 6 weeks starting from current week
+function buildWeekOptions() {
+  const today = getMondayOf(new Date());
+  return Array.from({length:6}, (_,i) => {
+    const mon = addDays(today, i*7);
+    return { key: weekKey(mon), label: fmtRange(mon), mon };
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// STEP 1 — Load Employee
+// ════════════════════════════════════════════════════════════
+async function loadEmployee() {
+  const empId = document.getElementById("emp-select").value;
+  if (!empId) { showStatus("identify-status","warning","Please select your name."); return; }
+
+  const clockNum = (document.getElementById("pin-input")?.value || "").trim();
+  if (!clockNum) {
+    showStatus("identify-status","warning","Please enter your password.");
+    return;
+  }
+
+  // Store for verification after server responds
+  state.enteredClockNum = clockNum;
+
+  const emp = ROSTER.find(e => e.id === empId);
+  state.emp = emp;
+  localStorage.setItem("dunkin_emp_id", empId);
+
+  showStatus("identify-status","info","<span class='spinner'></span> Loading your data...");
+
+  // Fetch their history from Apps Script
+  let lastData = null;
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=getEmployee&empId=${encodeURIComponent(empId)}`);
+    const json = await res.json();
+    if (json && json.ok) {
+      // Verify clock number against server
+      if (json.clockNum) {
+        if (state.enteredClockNum !== json.clockNum.toString()) {
+          showStatus("identify-status","error","⚠ Clock number doesn't match. Please try again.");
+          document.getElementById("pin-input").value = "";
+          return;
+        }
+      }
+      // If no clock number stored on server yet, allow through
+      lastData = json.data;
+      if (json.allWeeks) {
+        // Store per-employee so switching employees doesn't wipe others' data
+        if (!state.allWeeksByEmp) state.allWeeksByEmp = {};
+        state.allWeeksByEmp[state.emp.id] = json.allWeeks || {};
+      }
+      if (json.lockedWeeks) state.lockedWeeks = json.lockedWeeks;
+    }
+  } catch(e) {
+    // If no Apps Script configured, just continue with blank form
+    console.warn("Apps Script not configured, using blank form");
+  }
+
+  state.lastData = lastData;
+  document.getElementById("identify-status").innerHTML = "";
+  // Render all weeks at once
+  await renderAllWeeks();
+}
+
+// ════════════════════════════════════════════════════════════
+// STEP 2 — Week Selection
+// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// RENDER ALL WEEKS — shows current schedule + next 2 availability forms
+// ════════════════════════════════════════════════════════════
+let visibleWeekCount = 3; // current + 2 upcoming
+
+function getMondayOfWeek(offset) {
+  const today = getMondayOf(new Date());
+  return addDays(today, offset * 7);
+}
+
+function fmtWeekRange(mon) {
+  const opts = {month:"short", day:"numeric"};
+  return mon.toLocaleDateString("en-US", opts) + " – " +
+    addDays(mon, 6).toLocaleDateString("en-US", {...opts, year:"numeric"});
+}
+
+async function renderAllWeeks() {
+  const container = document.getElementById("all-weeks-container");
+  container.innerHTML = "";
+
+  // Show a quick loading indicator
+  container.style.display = "grid";
+  container.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:20px;grid-column:1/-1">
+    <span class="spinner"></span> Loading your availability...
+  </div>`;
+
+  // Fetch deployed schedule in parallel
+  let deployedSchedules = {};
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=getSchedule&empId=${encodeURIComponent(state.emp.id)}`);
+    const data = await res.json();
+    if(data.ok && data.schedules){
+      data.schedules.forEach(s => {
+        const wkStr = normalizeWeekKey(s.week);
+        if(wkStr) deployedSchedules[wkStr] = s.shifts || [];
+      });
+    }
+  } catch(e) {}
+
+  // Now render all panels with BOTH availability data AND schedule data
+  container.innerHTML = "";
+  show("all-weeks-container");
+
+  for(let i = 0; i < visibleWeekCount; i++){
+    const mon = getMondayOfWeek(i);
+    const wkKey = weekKey(mon);
+    const col = buildWeekPanel(mon, wkKey, i === 0, deployedSchedules[wkKey] || null);
+    container.appendChild(col);
+  }
+
+  const moreBtn = document.getElementById("show-more-wrap");
+  if(moreBtn) show("show-more-wrap");
+}
+
+function showMoreWeeks() {
+  visibleWeekCount += 2;
+  renderAllWeeks();
+  // Scroll to bottom
+  setTimeout(() => {
+    const container = document.getElementById("all-weeks-container");
+    const lastPanel = container.lastElementChild;
+    if(lastPanel) lastPanel.scrollIntoView({behavior:"smooth", block:"start"});
+  }, 100);
+}
+
+function normalizeWeekKey(val) {
+  if(!val) return null;
+  if(val instanceof Date) {
+    return val.getFullYear()+'-'+String(val.getMonth()+1).padStart(2,'0')+'-'+String(val.getDate()).padStart(2,'0');
+  }
+  const s = val.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+  return null;
+}
+
+function buildScheduleGrid(deployedShifts, dayDates, compact) {
+  // Reusable schedule grid for both current week and locked weeks
+  const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  if(!deployedShifts || !deployedShifts.length){
+    return `<div style="color:var(--muted);font-size:11px;padding:10px 0;text-align:center">Schedule not published yet.<br>Check back soon.</div>`;
+  }
+  const dayMap = {};
+  deployedShifts.forEach(s => { dayMap[s.day] = s; });
+  return `<div style="display:flex;flex-direction:column;gap:3px;margin-top:8px">` +
+    dayDates.map(({day, date}) => {
+      const shift = dayMap[day];
+      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:${shift?"rgba(255,107,26,0.1)":"var(--surface2)"};border:1px solid ${shift?"#c8410a":"var(--border)"};border-radius:6px">
+        <div style="font-size:9px;font-weight:700;color:${shift?"var(--orange)":"#444"};min-width:28px">${day}</div>
+        <div style="font-size:9px;font-weight:700;color:#bbb;min-width:36px">${date}</div>
+        ${shift
+          ? `<div style="font-size:10px;font-weight:700;color:#fff;flex:1">${shift.start}–${shift.end}${shift.role?` <span style="font-size:8px;color:var(--orange);opacity:.8">${shift.role}</span>`:""}</div>`
+          : `<div style="font-size:10px;color:#333;flex:1">OFF</div>`}
+      </div>`;
+    }).join("") + `</div>`;
+}
+
+function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts) {
+  const isLocked = state.lockedWeeks && state.lockedWeeks.includes(wkKey);
+  const weekLabel = fmtWeekRange(mon);
+  const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const dayDates = DAYS_SHORT.map((d,i) => ({
+    day: d,
+    date: addDays(mon,i).toLocaleDateString("en-US",{month:"short",day:"numeric"})
+  }));
+
+  const col = document.createElement("div");
+  col.className = "week-col" + (isCurrentWeek ? " current-week" : "") + (isLocked && !isCurrentWeek ? " locked-week" : "");
+  col.id = "week-panel-" + wkKey;
+
+  // ── Week header ──
+  const weekNum = isCurrentWeek ? "This Week" : (wkKey === weekKey(getMondayOfWeek(1)) ? "Next Week" : "Week +2");
+  const lockBadge = isLocked
+    ? `<span style="font-size:8px;color:#7f1d1d;background:#2a0808;border:1px solid #7f1d1d;border-radius:3px;padding:1px 5px;margin-left:4px">🔒 LOCKED</span>`
+    : "";
+  const headerColor = isCurrentWeek ? "var(--orange)" : isLocked ? "#555" : "#c4b5fd";
+
+  const header = `<div class="panel-label" style="border-color:${isCurrentWeek?"#2a1200":isLocked?"#2a0808":"var(--border)"}">
+    <span style="color:${headerColor};font-size:10px">${isCurrentWeek?"📅":"📋"}</span>
+    <div style="flex:1">
+      <div style="color:${headerColor}">${weekNum}</div>
+      <div style="font-size:9px;color:#ccc;font-weight:600;letter-spacing:0;text-transform:none;margin-top:2px">${weekLabel}</div>
+    </div>
+    ${lockBadge}
+  </div>`;
+
+  if(isCurrentWeek || isLocked) {
+    // ── Show schedule (current week always, locked weeks also show schedule) ──
+    const schedHtml = buildScheduleGrid(deployedShifts, dayDates, true);
+    col.innerHTML = header + schedHtml;
+
+  } else {
+    // ── Upcoming unlocked week: availability form ──
+    // Only pre-fill from THIS week's submission — never bleed another week's data
+    const empWeeks = (state.allWeeksByEmp && state.allWeeksByEmp[state.emp?.id]) || {};
+    const existingData = empWeeks[wkKey] || null;
+    const hasSubmitted = !!existingData;
+
+    const statusBadge = hasSubmitted
+      ? `<div style="font-size:9px;color:#34d399;margin-bottom:8px">✅ Submitted — update anytime</div>`
+      : `<div style="font-size:9px;color:#fbbf24;margin-bottom:8px">⏳ Not submitted yet</div>`;
+
+    const prefill = DAY_KEYS.map(k => existingData ? (existingData[k] || "") : "");
+
+    const gridRows = DAYS.map((dayName, i) => {
+      const isBusy = [3,4,5,6].includes(i);
+      const val = prefill[i] || "";
+      const isOff = !val || val.toUpperCase() === "OFF";
+      const dayDate = dayDates[i].date;
+      return `<div class="day-row">
+        <div class="day-name ${isBusy?"busy":""}">
+          ${dayName.slice(0,3)}
+          <div style="font-size:8px;font-weight:700;color:#aaa;margin-top:2px">${dayDate}</div>
+        </div>
+        <div class="time-input-wrap" style="flex:1">
+          <input type="text" id="day-${wkKey}-${i}"
+            value="${isOff?"":val}"
+            placeholder="${isOff?"OFF":"6AM-2PM"}"
+            class="${isOff?"off-day":""}"
+            autocomplete="off"
+            oninput="onWeekDayInput('${wkKey}',${i})"
+            onblur="onWeekDayBlur('${wkKey}',${i})"/>
+          <div id="err-${wkKey}-${i}" style="font-size:8px;min-height:10px"></div>
+        </div>
+        <button class="off-toggle ${isOff?"is-off":""}" id="off-${wkKey}-${i}"
+          onclick="toggleWeekOff('${wkKey}',${i})">
+          ${isOff?"OFF":"Set OFF"}
+        </button>
+      </div>`;
+    }).join("");
+
+    col.innerHTML = header + statusBadge +
+      `<div class="avail-grid">${gridRows}</div>
+      <div class="divider" style="margin:8px 0"></div>
+      <textarea id="notes-${wkKey}" placeholder="Notes for manager..."
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;width:100%;resize:none;height:42px;outline:none;margin-bottom:8px"
+      >${existingData&&existingData.notes?existingData.notes:""}</textarea>
+      <button onclick="submitWeek('${wkKey}')" id="submit-btn-${wkKey}"
+        style="background:linear-gradient(135deg,#059669,#065f46);color:#fff;border:none;border-radius:7px;padding:8px;font-weight:800;font-size:11px;cursor:pointer;width:100%;font-family:'Syne',sans-serif;letter-spacing:.5px">
+        ✓ Submit ${weekNum}
+      </button>
+      <div id="submit-status-${wkKey}" style="margin-top:6px;font-size:10px"></div>`;
+  }
+
+  return col;
+}
+
+// ── Per-week input handlers ──
+function getWeekDayValue(wkKey, i) {
+  const toggle = document.getElementById(`off-${wkKey}-${i}`);
+  if(toggle && toggle.classList.contains("is-off")) return "OFF";
+  const v = document.getElementById(`day-${wkKey}-${i}`)?.value.trim();
+  return v || "OFF";
+}
+
+function onWeekDayInput(wkKey, i) {
+  const input = document.getElementById(`day-${wkKey}-${i}`);
+  if(!input) return;
+  input.classList.remove("off-day");
+  input.style.borderColor = "";
+  const errEl = document.getElementById(`err-${wkKey}-${i}`);
+  if(errEl) errEl.textContent = "";
+  const toggle = document.getElementById(`off-${wkKey}-${i}`);
+  if(toggle){ toggle.classList.remove("is-off"); toggle.textContent = "Set OFF"; }
+}
+
+function onWeekDayBlur(wkKey, i) {
+  const input = document.getElementById(`day-${wkKey}-${i}`);
+  if(!input) return;
+  const val = input.value.trim();
+  const errEl = document.getElementById(`err-${wkKey}-${i}`);
+  if(val && val.toUpperCase() !== "OFF" && !isValidTime(val)){
+    input.style.borderColor = "var(--red)";
+    if(errEl){ errEl.textContent = "Use format: 6AM-2PM"; errEl.style.color = "var(--red)"; }
+  } else {
+    input.style.borderColor = "";
+    if(errEl) errEl.textContent = "";
+  }
+}
+
+function toggleWeekOff(wkKey, i) {
+  const input  = document.getElementById(`day-${wkKey}-${i}`);
+  const toggle = document.getElementById(`off-${wkKey}-${i}`);
+  if(!input || !toggle) return;
+  const isOff = toggle.classList.contains("is-off");
+  if(isOff){
+    input.value = ""; input.placeholder = "e.g. 6AM-2PM";
+    input.classList.remove("off-day");
+    toggle.classList.remove("is-off"); toggle.textContent = "Set OFF";
+  } else {
+    input.value = ""; input.placeholder = "OFF";
+    input.classList.add("off-day");
+    toggle.classList.add("is-off"); toggle.textContent = "OFF";
+  }
+}
+
+function isValidTime(val) {
+  if (!val || val.toUpperCase() === "OFF") return true;
+  return /^\d{1,2}(?::\d{2})?\s*(?:AM|PM)\s*-\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM)$/i.test(val.trim());
+}
+
+async function submitWeek(wkKey) {
+  const btn = document.getElementById(`submit-btn-${wkKey}`);
+  const statusEl = document.getElementById(`submit-status-${wkKey}`);
+
+  // Collect all 7 day values
+  const allVals = Array.from({length:7}, (_,i) => getWeekDayValue(wkKey, i));
+  console.log("Submitting week", wkKey, "values:", allVals);
+
+  // Validate time formats
+  const formatErrors = [];
+  for(let i = 0; i < 7; i++){
+    const val = allVals[i];
+    if(val && val !== "OFF" && !isValidTime(val)){
+      formatErrors.push(DAYS[i] + ": \"" + val + "\"");
+      const inp = document.getElementById(`day-${wkKey}-${i}`);
+      if(inp) inp.style.borderColor = "var(--red)";
+    }
+  }
+  if(formatErrors.length > 0){
+    statusEl.innerHTML = `<div class="status-box error">⚠ Invalid format: ${formatErrors.join(", ")}<br>Use <strong>6AM-2PM</strong> or tap <strong>Set OFF</strong></div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = "<span class='spinner'></span> Submitting...";
+  statusEl.innerHTML = "";
+
+  const payload = {
+    action: "submit",
+    empId: state.emp.id, empName: state.emp.name,
+    week: wkKey,
+    mon: allVals[0], tue: allVals[1], wed: allVals[2],
+    thu: allVals[3], fri: allVals[4], sat: allVals[5], sun: allVals[6],
+    notes: document.getElementById(`notes-${wkKey}`)?.value.trim() || "",
+    submittedAt: new Date().toISOString(),
+  };
+  console.log("Payload:", payload);
+
+  let ok = false;
+  try {
+    const params = new URLSearchParams(payload);
+    const res = await fetch(APPS_SCRIPT_URL + "?" + params.toString());
+    const json = await res.json();
+    if(json.locked){
+      statusEl.innerHTML = `<div class="status-box error">🔒 This week is locked by your manager.</div>`;
+      btn.disabled = false; btn.innerHTML = "✓ Submit Availability";
+      return;
+    }
+    ok = json.ok !== false;
+  } catch(e) { console.error(e); }
+
+  btn.disabled = false;
+  btn.innerHTML = "✓ Submit " + (wkKey === weekKey(getMondayOfWeek(1)) ? "Next Week" : "Week");
+
+  if(ok){
+    // Update local cache
+    localStorage.setItem(`dunkin_avail_${state.emp.id}`, JSON.stringify(payload));
+    state.lastData = payload;
+    if(!state.allWeeksByEmp) state.allWeeksByEmp = {};
+    if(!state.allWeeksByEmp[state.emp.id]) state.allWeeksByEmp[state.emp.id] = {};
+    state.allWeeksByEmp[state.emp.id][wkKey] = payload;
+
+    statusEl.innerHTML = `<div class="status-box success">✅ Submitted!</div>`;
+
+    // Update the status badge inline without re-rendering (avoids wiping the form)
+    const panel = document.getElementById(`week-panel-${wkKey}`);
+    if(panel){
+      // Update the ⏳ not submitted → ✅ submitted badge
+      const oldBadge = panel.querySelector('[style*="fbbf24"]');
+      if(oldBadge) oldBadge.outerHTML = `<div style="font-size:9px;color:#34d399;margin-bottom:8px">✅ Submitted — update anytime</div>`;
+    }
+
+    // Refresh submit button label
+    const sbtn = document.getElementById(`submit-btn-${wkKey}`);
+    if(sbtn) sbtn.innerHTML = "✓ Update Availability";
+  } else {
+    statusEl.innerHTML = `<div class="status-box error">⚠ Submission failed. Please try again.</div>`;
+  }
+}
+
+
+
+// ════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════
+function show(id) { document.getElementById(id).classList.remove("hidden"); }
+function hide(id) { document.getElementById(id).classList.add("hidden"); }
+function showStatus(id, type, msg) {
+  document.getElementById(id).innerHTML = `<div class="status-box ${type}">${msg}</div>`;
+}
+</script>
+
+<!-- Manager Reset Tool (hidden at bottom, for testing only) -->
+<div id="reset-section" style="position:fixed;bottom:16px;right:16px;z-index:999">
+  <button onclick="openManagerTools()"
+    style="background:rgba(0,0,0,0.06);color:var(--muted);border:none;border-radius:10px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:var(--ios-font);font-weight:500;backdrop-filter:blur(10px)">
+    ⚙️ Manager
+  </button>
+  <div id="reset-panel" style="display:none;background:#fff;border:none;border-radius:16px;padding:16px;margin-top:8px;min-width:260px;box-shadow:0 4px 20px rgba(0,0,0,0.15)">
+    <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:10px">⚠ Reset All Google Sheet Data</div>
+    <div style="font-size:11px;color:#888;margin-bottom:12px;line-height:1.5">
+      Wipes all submissions, locked weeks, deployed schedules and clock numbers. Keeps sheet headers. Use for testing only.
+    </div>
+    <button onclick="resetAllSheetData()"
+      style="background:#7f1d1d;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%">
+      🗑 Reset All Data
+    </button>
+    <div id="reset-status" style="margin-top:8px;font-size:10px;color:#888"></div>
+  </div>
+</div>
+
+<script>
+// ── Manager Tools password ──
+// Change this to your own password
+const MANAGER_PASSWORD = "dunkin2026";
+let managerUnlocked = false;
+
+function openManagerTools() {
+  if (managerUnlocked) {
+    const panel = document.getElementById('reset-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  const entered = prompt("Enter manager password:");
+  if (entered === null) return; // cancelled
+  if (entered === MANAGER_PASSWORD) {
+    managerUnlocked = true;
+    document.getElementById('reset-panel').style.display = 'block';
+  } else {
+    alert("Incorrect password.");
+  }
+}
+
+// Show manager tools with keyboard shortcut: Ctrl+Shift+M
+document.addEventListener('keydown', e => {
+  if(e.ctrlKey && e.shiftKey && e.key === 'M') {
+    const sec = document.getElementById('reset-section');
+    sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+  }
+});
+
+async function resetAllSheetData() {
+  if(!confirm('⚠ This will DELETE ALL data in the Google Sheet (submissions, locks, schedules, clock numbers).\n\nAre you absolutely sure?')) return;
+  if(!confirm('Last chance — this cannot be undone. Continue?')) return;
+
+  const statusEl = document.getElementById('reset-status');
+  statusEl.textContent = '⏳ Resetting...';
+
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=resetAllData&confirm=YES_DELETE_ALL`);
+    const data = await res.json();
+    if(data.ok){
+      statusEl.style.color = '#34d399';
+      statusEl.textContent = '✅ Done! ' + (data.details||[]).join(', ');
+    } else {
+      statusEl.style.color = '#f87171';
+      statusEl.textContent = '❌ ' + (data.error||'Failed');
+    }
+  } catch(e) {
+    statusEl.style.color = '#f87171';
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+</script>
+
+</body>
+</html>
