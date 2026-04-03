@@ -614,6 +614,7 @@ async function renderAllWeeks() {
     const data = await res.json();
     if(data.ok && data.schedules){
       data.schedules.forEach(s => {
+        // normalizeWeekKey already converts to Monday
         const wkStr = normalizeWeekKey(s.week);
         if(wkStr) myShiftsByWeek[wkStr] = s.shifts || [];
       });
@@ -629,14 +630,19 @@ async function renderAllWeeks() {
   });
 
   // Fetch team schedules for all 3 weeks in parallel
-  await Promise.all(weeksToShow.map(async ({ wk }) => {
-    try {
-      const res = await fetch(`${APPS_SCRIPT_URL}?action=getWeekSchedule&week=${encodeURIComponent(wk)}`);
-      const data = await res.json();
-      if(data.ok && data.schedule && Object.keys(data.schedule).length > 0){
-        teamScheduleByWeek[wk] = data.schedule;
-      }
-    } catch(e) {}
+  // Try both the Monday key AND the Sunday before (in case deploy stored as Sunday due to timezone)
+  await Promise.all(weeksToShow.map(async ({ wk, mon }) => {
+    const sundayKey = weekKey(addDays(mon, -1)); // day before Monday
+    for(const tryKey of [wk, sundayKey]) {
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getWeekSchedule&week=${encodeURIComponent(tryKey)}`);
+        const data = await res.json();
+        if(data.ok && data.schedule && Object.keys(data.schedule).length > 0){
+          teamScheduleByWeek[wk] = data.schedule; // always store under Monday key
+          break; // found it, stop trying
+        }
+      } catch(e) {}
+    }
   }));
 
   // Render panels
@@ -739,24 +745,27 @@ function buildTeamScheduleSection(teamSchedule, dayDates) {
 
   const rows = dayDates.map(({day, date}) => {
     const crew = byDay[day] || [];
-    const crewHtml = crew.length
-      ? crew.map(s =>
-          `<div style="display:flex;align-items:center;gap:4px;padding:2px 0">
-            <span style="font-size:9px;font-weight:700;color:#e2e8f0;min-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
-            <span style="font-size:9px;color:#94a3b8">${s.start}–${s.end}</span>
-            ${s.role ? `<span style="font-size:8px;color:var(--orange);opacity:.8">${s.role}</span>` : ''}
-          </div>`
-        ).join('')
-      : `<div style="font-size:9px;color:#333">—</div>`;
+    if(!crew.length) return ''; // skip days with no one working
 
-    return `<div style="margin-bottom:6px">
-      <div style="font-size:9px;font-weight:700;color:var(--orange);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px">${day} <span style="color:#555;font-weight:400">${date}</span></div>
+    const crewHtml = crew.map(s =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:2px">
+        <span style="font-size:11px;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
+        <span style="font-size:10px;font-weight:500;color:var(--orange);white-space:nowrap">${s.start}–${s.end}</span>
+        ${s.role ? `<span style="font-size:9px;color:var(--muted)">${s.role}</span>` : ''}
+      </div>`
+    ).join('');
+
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid var(--border)">
+        ${day} <span style="color:var(--muted);font-weight:400;font-size:9px">${date}</span>
+        <span style="color:var(--muted);font-weight:400;font-size:9px;float:right">${crew.length} staff</span>
+      </div>
       ${crewHtml}
     </div>`;
   }).join('');
 
-  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--separator)">
-    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">👥 Full Team Schedule</div>
+  return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--separator)">
+    <div style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👥 Full Team Schedule</div>
     ${rows}
   </div>`;
 }
