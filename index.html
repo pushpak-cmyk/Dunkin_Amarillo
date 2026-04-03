@@ -815,6 +815,11 @@ function downloadICS(calId) {
       `DESCRIPTION:${desc}`,
       `LOCATION:${storeAddress}`,
       'STATUS:CONFIRMED',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT1H',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${storeName} shift starts in 1 hour`,
+      'END:VALARM',
       'END:VEVENT'
         ].join('\r\n'));
   }
