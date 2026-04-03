@@ -99,6 +99,7 @@
     border-top: 3px solid var(--orange);
   }
   .week-col.locked-week { opacity: .7; }
+  .week-col.past-week { opacity: .85; border-top: 3px solid #555; }
 
   .panel {
     background: var(--surface);
@@ -600,30 +601,67 @@ async function renderAllWeeks() {
   // Show a quick loading indicator
   container.style.display = "grid";
   container.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:20px;grid-column:1/-1">
-    <span class="spinner"></span> Loading your availability...
+    <span class="spinner"></span> Loading your schedule...
   </div>`;
 
-  // Fetch deployed schedule in parallel
-  let deployedSchedules = {};
+  // Fetch this employee's personal deployed shifts (for all weeks)
+  let myShiftsByWeek = {};
+  // Also fetch full team schedule for each relevant week
+  let teamScheduleByWeek = {};
+
   try {
     const res = await fetch(`${APPS_SCRIPT_URL}?action=getSchedule&empId=${encodeURIComponent(state.emp.id)}`);
     const data = await res.json();
     if(data.ok && data.schedules){
       data.schedules.forEach(s => {
         const wkStr = normalizeWeekKey(s.week);
-        if(wkStr) deployedSchedules[wkStr] = s.shifts || [];
+        if(wkStr) myShiftsByWeek[wkStr] = s.shifts || [];
       });
     }
-  } catch(e) {}
+  } catch(e) { console.warn("getSchedule failed", e); }
 
-  // Now render all panels with BOTH availability data AND schedule data
+  // Build the list of weeks to show:
+  // - Up to 2 past deployed weeks
+  // - Current week
+  // - Next visibleWeekCount upcoming weeks
+  const todayMon = getMondayOf(new Date());
+  const weeksToShow = [];
+
+  // Past weeks that have deployed schedules (check last 4 weeks)
+  for(let i = -4; i < 0; i++){
+    const mon = addDays(todayMon, i * 7);
+    const wk = weekKey(mon);
+    if(myShiftsByWeek[wk] && myShiftsByWeek[wk].length > 0){
+      weeksToShow.push({ mon, wk, isPast: true, isCurrentWeek: false });
+    }
+  }
+
+  // Current + upcoming weeks
+  for(let i = 0; i < visibleWeekCount; i++){
+    const mon = getMondayOfWeek(i);
+    const wk = weekKey(mon);
+    weeksToShow.push({ mon, wk, isPast: false, isCurrentWeek: i === 0 });
+  }
+
+  // Fetch team schedules for all weeks that have my shifts OR are locked
+  const weeksNeedingTeam = weeksToShow
+    .filter(w => myShiftsByWeek[w.wk] || (state.lockedWeeks && state.lockedWeeks.includes(w.wk)))
+    .map(w => w.wk);
+
+  await Promise.all(weeksNeedingTeam.map(async wk => {
+    try {
+      const res = await fetch(`${APPS_SCRIPT_URL}?action=getWeekSchedule&week=${encodeURIComponent(wk)}`);
+      const data = await res.json();
+      if(data.ok && data.schedule) teamScheduleByWeek[wk] = data.schedule;
+    } catch(e) {}
+  }));
+
+  // Render panels
   container.innerHTML = "";
   show("all-weeks-container");
 
-  for(let i = 0; i < visibleWeekCount; i++){
-    const mon = getMondayOfWeek(i);
-    const wkKey = weekKey(mon);
-    const col = buildWeekPanel(mon, wkKey, i === 0, deployedSchedules[wkKey] || null);
+  for(const { mon, wk, isPast, isCurrentWeek } of weeksToShow){
+    const col = buildWeekPanel(mon, wk, isCurrentWeek, myShiftsByWeek[wk] || null, teamScheduleByWeek[wk] || null, isPast);
     container.appendChild(col);
   }
 
@@ -675,7 +713,55 @@ function buildScheduleGrid(deployedShifts, dayDates, compact) {
     }).join("") + `</div>`;
 }
 
-function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts) {
+// ── Build full team schedule section ──────────────────────────
+function buildTeamScheduleSection(teamSchedule, dayDates) {
+  const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+  // Build: { "Mon": [ {name, start, end, role}, ... ], ... }
+  const byDay = {};
+  DAYS_SHORT.forEach(d => byDay[d] = []);
+
+  // teamSchedule = { empId: [ {day, start, end, role}, ... ] }
+  // We need roster names — use ROSTER global (loaded at login)
+  for(const [empId, shifts] of Object.entries(teamSchedule)){
+    if(!Array.isArray(shifts)) continue;
+    const emp = (typeof ROSTER !== 'undefined' ? ROSTER : []).find(e => e.id === empId);
+    const name = emp ? emp.name : empId;
+    shifts.forEach(s => {
+      if(byDay[s.day]) byDay[s.day].push({ name, start: s.start, end: s.end, role: s.role || '' });
+    });
+  }
+
+  // Sort each day by start time
+  DAYS_SHORT.forEach(d => {
+    byDay[d].sort((a,b) => a.start.localeCompare(b.start));
+  });
+
+  const rows = dayDates.map(({day, date}) => {
+    const crew = byDay[day] || [];
+    const crewHtml = crew.length
+      ? crew.map(s =>
+          `<div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+            <span style="font-size:9px;font-weight:700;color:#e2e8f0;min-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
+            <span style="font-size:9px;color:#94a3b8">${s.start}–${s.end}</span>
+            ${s.role ? `<span style="font-size:8px;color:var(--orange);opacity:.8">${s.role}</span>` : ''}
+          </div>`
+        ).join('')
+      : `<div style="font-size:9px;color:#333">—</div>`;
+
+    return `<div style="margin-bottom:6px">
+      <div style="font-size:9px;font-weight:700;color:var(--orange);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px">${day} <span style="color:#555;font-weight:400">${date}</span></div>
+      ${crewHtml}
+    </div>`;
+  }).join('');
+
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--separator)">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">👥 Full Team Schedule</div>
+    ${rows}
+  </div>`;
+}
+
+function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts, teamSchedule, isPast) {
   const isLocked = state.lockedWeeks && state.lockedWeeks.includes(wkKey);
   const weekLabel = fmtWeekRange(mon);
   const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
@@ -685,18 +771,21 @@ function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts) {
   }));
 
   const col = document.createElement("div");
-  col.className = "week-col" + (isCurrentWeek ? " current-week" : "") + (isLocked && !isCurrentWeek ? " locked-week" : "");
+  col.className = "week-col" + (isCurrentWeek ? " current-week" : "") + (isLocked && !isCurrentWeek ? " locked-week" : "") + (isPast ? " past-week" : "");
   col.id = "week-panel-" + wkKey;
 
   // ── Week header ──
-  const weekNum = isCurrentWeek ? "This Week" : (wkKey === weekKey(getMondayOfWeek(1)) ? "Next Week" : "Week +2");
+  const weekNum = isPast ? "Past Week"
+    : isCurrentWeek ? "This Week"
+    : wkKey === weekKey(getMondayOfWeek(1)) ? "Next Week"
+    : "Upcoming";
   const lockBadge = isLocked
     ? `<span style="font-size:8px;color:#7f1d1d;background:#2a0808;border:1px solid #7f1d1d;border-radius:3px;padding:1px 5px;margin-left:4px">🔒 LOCKED</span>`
     : "";
   const headerColor = isCurrentWeek ? "var(--orange)" : isLocked ? "#555" : "#c4b5fd";
 
   const header = `<div class="panel-label" style="border-color:${isCurrentWeek?"#2a1200":isLocked?"#2a0808":"var(--border)"}">
-    <span style="color:${headerColor};font-size:10px">${isCurrentWeek?"📅":"📋"}</span>
+    <span style="color:${headerColor};font-size:10px">${isPast?"🕐":isCurrentWeek?"📅":"📋"}</span>
     <div style="flex:1">
       <div style="color:${headerColor}">${weekNum}</div>
       <div style="font-size:9px;color:#ccc;font-weight:600;letter-spacing:0;text-transform:none;margin-top:2px">${weekLabel}</div>
@@ -704,10 +793,17 @@ function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts) {
     ${lockBadge}
   </div>`;
 
-  if(isCurrentWeek || isLocked) {
-    // ── Show schedule (current week always, locked weeks also show schedule) ──
-    const schedHtml = buildScheduleGrid(deployedShifts, dayDates, true);
-    col.innerHTML = header + schedHtml;
+  if(isCurrentWeek || isLocked || isPast) {
+    // ── Show this employee's personal schedule ──
+    const mySchedHtml = buildScheduleGrid(deployedShifts, dayDates, true);
+
+    // ── Build team schedule section if we have it ──
+    let teamHtml = '';
+    if(teamSchedule && Object.keys(teamSchedule).length > 0){
+      teamHtml = buildTeamScheduleSection(teamSchedule, dayDates);
+    }
+
+    col.innerHTML = header + mySchedHtml + teamHtml;
 
   } else {
     // ── Upcoming unlocked week: availability form ──
