@@ -620,39 +620,22 @@ async function renderAllWeeks() {
     }
   } catch(e) { console.warn("getSchedule failed", e); }
 
-  // Build the list of weeks to show:
-  // - Up to 2 past deployed weeks
-  // - Current week
-  // - Next visibleWeekCount upcoming weeks
+  // Always show exactly 3 weeks: current + next 2
   const todayMon = getMondayOf(new Date());
-  const weeksToShow = [];
-
-  // Past weeks that have deployed schedules (check last 4 weeks)
-  for(let i = -4; i < 0; i++){
+  const weeksToShow = [0, 1, 2].map(i => {
     const mon = addDays(todayMon, i * 7);
     const wk = weekKey(mon);
-    if(myShiftsByWeek[wk] && myShiftsByWeek[wk].length > 0){
-      weeksToShow.push({ mon, wk, isPast: true, isCurrentWeek: false });
-    }
-  }
+    return { mon, wk, isPast: false, isCurrentWeek: i === 0 };
+  });
 
-  // Current + upcoming weeks
-  for(let i = 0; i < visibleWeekCount; i++){
-    const mon = getMondayOfWeek(i);
-    const wk = weekKey(mon);
-    weeksToShow.push({ mon, wk, isPast: false, isCurrentWeek: i === 0 });
-  }
-
-  // Fetch team schedules for all weeks that have my shifts
-  const weeksNeedingTeam = weeksToShow
-    .filter(w => myShiftsByWeek[w.wk] && myShiftsByWeek[w.wk].length > 0)
-    .map(w => w.wk);
-
-  await Promise.all(weeksNeedingTeam.map(async wk => {
+  // Fetch team schedules for all 3 weeks in parallel
+  await Promise.all(weeksToShow.map(async ({ wk }) => {
     try {
       const res = await fetch(`${APPS_SCRIPT_URL}?action=getWeekSchedule&week=${encodeURIComponent(wk)}`);
       const data = await res.json();
-      if(data.ok && data.schedule) teamScheduleByWeek[wk] = data.schedule;
+      if(data.ok && data.schedule && Object.keys(data.schedule).length > 0){
+        teamScheduleByWeek[wk] = data.schedule;
+      }
     } catch(e) {}
   }));
 
@@ -661,7 +644,9 @@ async function renderAllWeeks() {
   show("all-weeks-container");
 
   for(const { mon, wk, isPast, isCurrentWeek } of weeksToShow){
-    const col = buildWeekPanel(mon, wk, isCurrentWeek, myShiftsByWeek[wk] || null, teamScheduleByWeek[wk] || null, isPast);
+    const myShifts = myShiftsByWeek[wk] || null;
+    const teamSched = teamScheduleByWeek[wk] || null;
+    const col = buildWeekPanel(mon, wk, isCurrentWeek, myShifts, teamSched, isPast);
     container.appendChild(col);
   }
 
@@ -694,25 +679,36 @@ function normalizeWeekKey(val) {
   return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
 }
 
-function buildScheduleGrid(deployedShifts, dayDates, compact) {
-  // Reusable schedule grid for both current week and locked weeks
-  const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+function buildScheduleGrid(deployedShifts, dayDates) {
   if(!deployedShifts || !deployedShifts.length){
     return `<div style="color:var(--muted);font-size:11px;padding:10px 0;text-align:center">Schedule not published yet.<br>Check back soon.</div>`;
   }
   const dayMap = {};
   deployedShifts.forEach(s => { dayMap[s.day] = s; });
-  return `<div style="display:flex;flex-direction:column;gap:3px;margin-top:8px">` +
-    dayDates.map(({day, date}) => {
-      const shift = dayMap[day];
-      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:${shift?"rgba(255,107,26,0.1)":"var(--surface2)"};border:1px solid ${shift?"#c8410a":"var(--border)"};border-radius:6px">
-        <div style="font-size:9px;font-weight:700;color:${shift?"var(--orange)":"#444"};min-width:28px">${day}</div>
-        <div style="font-size:9px;font-weight:700;color:#bbb;min-width:36px">${date}</div>
-        ${shift
-          ? `<div style="font-size:10px;font-weight:700;color:#fff;flex:1">${shift.start}–${shift.end}${shift.role?` <span style="font-size:8px;color:var(--orange);opacity:.8">${shift.role}</span>`:""}</div>`
-          : `<div style="font-size:10px;color:#333;flex:1">OFF</div>`}
+
+  const rows = dayDates.map(({day, date}) => {
+    const shift = dayMap[day];
+    if(shift) {
+      // Working day — orange highlight, dark text for readability
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,107,26,0.12);border:1px solid rgba(255,107,26,0.35);border-radius:8px;margin-bottom:3px">
+        <div style="font-size:10px;font-weight:800;color:var(--orange);min-width:30px">${day}</div>
+        <div style="font-size:10px;color:var(--muted);min-width:40px">${date}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text);flex:1">${shift.start} – ${shift.end}${shift.role?` <span style="font-size:9px;color:var(--orange);font-weight:500"> · ${shift.role}</span>`:""}</div>
       </div>`;
-    }).join("") + `</div>`;
+    } else {
+      // Off day — muted
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:3px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);min-width:30px">${day}</div>
+        <div style="font-size:10px;color:var(--muted);min-width:40px">${date}</div>
+        <div style="font-size:10px;color:var(--muted);flex:1">OFF</div>
+      </div>`;
+    }
+  }).join("");
+
+  return `<div style="margin-top:6px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📅 Your Schedule</div>
+    ${rows}
+  </div>`;
 }
 
 // ── Build full team schedule section ──────────────────────────
@@ -765,8 +761,61 @@ function buildTeamScheduleSection(teamSchedule, dayDates) {
   </div>`;
 }
 
+function buildAvailForm(wkKey, weekNum, dayDates) {
+  // Build the availability submission form for an unlocked week
+  const empWeeks = (state.allWeeksByEmp && state.allWeeksByEmp[state.emp?.id]) || {};
+  const existingData = empWeeks[wkKey] || null;
+  const hasSubmitted = !!existingData;
+  const prefill = DAY_KEYS.map(k => existingData ? (existingData[k] || "") : "");
+
+  const statusBadge = hasSubmitted
+    ? `<div style="font-size:9px;color:var(--green);margin-bottom:8px">✅ Availability submitted — update anytime</div>`
+    : `<div style="font-size:9px;color:var(--yellow);margin-bottom:8px">⏳ Submit your availability for this week</div>`;
+
+  const gridRows = DAYS.map((dayName, i) => {
+    const val = prefill[i] || "";
+    const isOff = !val || val.toUpperCase() === "OFF";
+    const dayDate = dayDates[i].date;
+    return `<div class="day-row">
+      <div class="day-name">
+        ${dayName.slice(0,3)}
+        <div style="font-size:8px;font-weight:700;color:var(--muted);margin-top:2px">${dayDate}</div>
+      </div>
+      <div class="time-input-wrap" style="flex:1">
+        <input type="text" id="day-${wkKey}-${i}"
+          value="${isOff?"":val}"
+          placeholder="${isOff?"OFF":"6AM-2PM"}"
+          class="${isOff?"off-day":""}"
+          autocomplete="off"
+          oninput="onWeekDayInput('${wkKey}',${i})"
+          onblur="onWeekDayBlur('${wkKey}',${i})"/>
+        <div id="err-${wkKey}-${i}" style="font-size:8px;min-height:10px"></div>
+      </div>
+      <button class="off-toggle ${isOff?"is-off":""}" id="off-${wkKey}-${i}"
+        onclick="toggleWeekOff('${wkKey}',${i})">
+        ${isOff?"OFF":"Set OFF"}
+      </button>
+    </div>`;
+  }).join("");
+
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--separator)">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📝 Your Availability</div>
+    ${statusBadge}
+    <div class="avail-grid">${gridRows}</div>
+    <textarea id="notes-${wkKey}" placeholder="Notes for manager..."
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;width:100%;resize:none;height:36px;outline:none;margin-top:8px;margin-bottom:6px"
+    >${existingData&&existingData.notes?existingData.notes:""}</textarea>
+    <button onclick="submitWeek('${wkKey}')" id="submit-btn-${wkKey}"
+      style="background:linear-gradient(135deg,#059669,#065f46);color:#fff;border:none;border-radius:7px;padding:8px;font-weight:800;font-size:11px;cursor:pointer;width:100%">
+      ✓ Submit Availability
+    </button>
+    <div id="submit-status-${wkKey}" style="margin-top:6px;font-size:10px"></div>
+  </div>`;
+}
+
 function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts, teamSchedule, isPast) {
   const isLocked = state.lockedWeeks && state.lockedWeeks.includes(wkKey);
+  const hasSchedule = deployedShifts && deployedShifts.length > 0;
   const weekLabel = fmtWeekRange(mon);
   const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   const dayDates = DAYS_SHORT.map((d,i) => ({
@@ -775,7 +824,7 @@ function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts, teamSchedule,
   }));
 
   const col = document.createElement("div");
-  col.className = "week-col" + (isCurrentWeek ? " current-week" : "") + (isLocked && !isCurrentWeek ? " locked-week" : "") + (isPast ? " past-week" : "");
+  col.className = "week-col" + (isCurrentWeek ? " current-week" : "") + (isPast ? " past-week" : "");
   col.id = "week-panel-" + wkKey;
 
   // ── Week header ──
@@ -783,85 +832,42 @@ function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts, teamSchedule,
     : isCurrentWeek ? "This Week"
     : wkKey === weekKey(getMondayOfWeek(1)) ? "Next Week"
     : "Upcoming";
-  const lockBadge = isLocked
-    ? `<span style="font-size:8px;color:#7f1d1d;background:#2a0808;border:1px solid #7f1d1d;border-radius:3px;padding:1px 5px;margin-left:4px">🔒 LOCKED</span>`
-    : "";
-  const headerColor = isCurrentWeek ? "var(--orange)" : isLocked ? "#555" : "#c4b5fd";
 
-  const header = `<div class="panel-label" style="border-color:${isCurrentWeek?"#2a1200":isLocked?"#2a0808":"var(--border)"}">
+  const lockBadge = isLocked
+    ? `<span style="font-size:8px;color:#ef4444;background:var(--red-bg);border:1px solid #7f1d1d;border-radius:3px;padding:1px 5px;margin-left:4px">🔒 LOCKED</span>`
+    : hasSchedule
+    ? `<span style="font-size:8px;color:var(--green);background:var(--green-bg);border:1px solid #166534;border-radius:3px;padding:1px 5px;margin-left:4px">📋 OPEN</span>`
+    : "";
+
+  const headerColor = isCurrentWeek ? "var(--orange)" : isPast ? "#888" : "var(--text)";
+
+  const header = `<div class="panel-label" style="border-color:${isCurrentWeek?"var(--orange)":isLocked?"#7f1d1d":hasSchedule?"#166534":"var(--border)"}">
     <span style="color:${headerColor};font-size:10px">${isPast?"🕐":isCurrentWeek?"📅":"📋"}</span>
     <div style="flex:1">
-      <div style="color:${headerColor}">${weekNum}</div>
-      <div style="font-size:9px;color:#ccc;font-weight:600;letter-spacing:0;text-transform:none;margin-top:2px">${weekLabel}</div>
+      <div style="color:${headerColor};font-weight:700">${weekNum}</div>
+      <div style="font-size:9px;color:var(--muted);font-weight:500;margin-top:2px">${weekLabel}</div>
     </div>
     ${lockBadge}
   </div>`;
 
-  if(isCurrentWeek || isLocked || isPast || (deployedShifts && deployedShifts.length > 0)) {
-    // ── Show this employee's personal schedule ──
-    const mySchedHtml = buildScheduleGrid(deployedShifts, dayDates, true);
+  // ── Always show schedule if deployed ──
+  let schedHtml = "";
+  let teamHtml = "";
 
-    // ── Build team schedule section if we have it ──
-    let teamHtml = '';
+  if(hasSchedule) {
+    schedHtml = buildScheduleGrid(deployedShifts, dayDates);
     if(teamSchedule && Object.keys(teamSchedule).length > 0){
       teamHtml = buildTeamScheduleSection(teamSchedule, dayDates);
     }
-
-    col.innerHTML = header + mySchedHtml + teamHtml;
-
-  } else {
-    // ── Upcoming unlocked week: availability form ──
-    // Only pre-fill from THIS week's submission — never bleed another week's data
-    const empWeeks = (state.allWeeksByEmp && state.allWeeksByEmp[state.emp?.id]) || {};
-    const existingData = empWeeks[wkKey] || null;
-    const hasSubmitted = !!existingData;
-
-    const statusBadge = hasSubmitted
-      ? `<div style="font-size:9px;color:#34d399;margin-bottom:8px">✅ Submitted — update anytime</div>`
-      : `<div style="font-size:9px;color:#fbbf24;margin-bottom:8px">⏳ Not submitted yet</div>`;
-
-    const prefill = DAY_KEYS.map(k => existingData ? (existingData[k] || "") : "");
-
-    const gridRows = DAYS.map((dayName, i) => {
-      const isBusy = [3,4,5,6].includes(i);
-      const val = prefill[i] || "";
-      const isOff = !val || val.toUpperCase() === "OFF";
-      const dayDate = dayDates[i].date;
-      return `<div class="day-row">
-        <div class="day-name ${isBusy?"busy":""}">
-          ${dayName.slice(0,3)}
-          <div style="font-size:8px;font-weight:700;color:#aaa;margin-top:2px">${dayDate}</div>
-        </div>
-        <div class="time-input-wrap" style="flex:1">
-          <input type="text" id="day-${wkKey}-${i}"
-            value="${isOff?"":val}"
-            placeholder="${isOff?"OFF":"6AM-2PM"}"
-            class="${isOff?"off-day":""}"
-            autocomplete="off"
-            oninput="onWeekDayInput('${wkKey}',${i})"
-            onblur="onWeekDayBlur('${wkKey}',${i})"/>
-          <div id="err-${wkKey}-${i}" style="font-size:8px;min-height:10px"></div>
-        </div>
-        <button class="off-toggle ${isOff?"is-off":""}" id="off-${wkKey}-${i}"
-          onclick="toggleWeekOff('${wkKey}',${i})">
-          ${isOff?"OFF":"Set OFF"}
-        </button>
-      </div>`;
-    }).join("");
-
-    col.innerHTML = header + statusBadge +
-      `<div class="avail-grid">${gridRows}</div>
-      <div class="divider" style="margin:8px 0"></div>
-      <textarea id="notes-${wkKey}" placeholder="Notes for manager..."
-        style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;width:100%;resize:none;height:42px;outline:none;margin-bottom:8px"
-      >${existingData&&existingData.notes?existingData.notes:""}</textarea>
-      <button onclick="submitWeek('${wkKey}')" id="submit-btn-${wkKey}"
-        style="background:linear-gradient(135deg,#059669,#065f46);color:#fff;border:none;border-radius:7px;padding:8px;font-weight:800;font-size:11px;cursor:pointer;width:100%;font-family:'Syne',sans-serif;letter-spacing:.5px">
-        ✓ Submit ${weekNum}
-      </button>
-      <div id="submit-status-${wkKey}" style="margin-top:6px;font-size:10px"></div>`;
+  } else if(!isPast) {
+    // No schedule deployed yet — show placeholder
+    schedHtml = `<div style="color:var(--muted);font-size:11px;padding:10px 0;text-align:center">Schedule not published yet.<br>Check back soon.</div>`;
   }
 
+  // ── Show availability form only if week is NOT locked ──
+  const availHtml = (!isLocked && !isPast) ? buildAvailForm(wkKey, weekNum, dayDates) : "";
+
+  col.innerHTML = header + schedHtml + teamHtml + availHtml;
   return col;
 }
 
