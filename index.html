@@ -441,7 +441,7 @@ async function loadRoster() {
     const data = await res.json();
 
     if (data.ok && data.roster && data.roster.length > 0) {
-      ROSTER = data.roster;
+      ROSTER = data.roster.sort((a,b) => a.name.localeCompare(b.name));
 
       // Populate dropdown
       sel.innerHTML = '<option value="">Select your name</option>';
@@ -742,9 +742,9 @@ function buildTeamScheduleSection(teamSchedule, dayDates) {
     });
   }
 
-  // Sort each day by start time
+  // Sort each day by start time, then name
   DAYS_SHORT.forEach(d => {
-    byDay[d].sort((a,b) => a.start.localeCompare(b.start));
+    byDay[d].sort((a,b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
   });
 
   const rows = dayDates.map(({day, date}) => {
