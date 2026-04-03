@@ -3117,8 +3117,6 @@ async function cloudSave(manual=false){
       chunks.push(json.slice(i, i + CHUNK_SIZE));
     }
 
-    // Use a hidden iframe per chunk — works from file:// origin unlike fetch
-    // Each iframe load triggers the Apps Script save
     for(let ci = 0; ci < chunks.length; ci++){
       const params = new URLSearchParams({
         action: 'saveBackup',
@@ -3127,18 +3125,10 @@ async function cloudSave(manual=false){
         totalChunks: chunks.length,
         isFirst: ci === 0 ? '1' : '0'
       });
-      await new Promise((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'display:none;position:absolute;width:1px;height:1px';
-        iframe.src = url + '?' + params.toString();
-        iframe.onload = () => { document.body.removeChild(iframe); resolve(); };
-        iframe.onerror = () => { document.body.removeChild(iframe); resolve(); };
-        document.body.appendChild(iframe);
-        // Timeout fallback after 10s
-        setTimeout(() => { try{document.body.removeChild(iframe);}catch(e){} resolve(); }, 10000);
-      });
-      // Small delay between chunks
-      if(ci < chunks.length - 1) await new Promise(r => setTimeout(r, 500));
+      const res = await fetch(url + '?' + params.toString());
+      const result = await res.json();
+      if(!result.ok) throw new Error(result.error || 'Save failed on chunk '+ci);
+      if(ci < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
     }
 
     // Update UI
