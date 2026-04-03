@@ -796,7 +796,7 @@ function buildAvailForm(wkKey, weekNum, dayDates) {
     if (existingData) return existingData[k] || "";         // this week's submission
     if (latestSubmitted) return latestSubmitted[k] || "";   // latest submitted week
     if (baseWin && baseWin[i] !== undefined) {              // base roster windows
-      const w = baseWin[i] || "";
+      const w = (baseWin[i] || "").toString().trim();
       return w.toUpperCase() === "OFF" ? "" : w;
     }
     return "";
