@@ -3111,25 +3111,15 @@ async function cloudSave(manual=false){
   try{
     const json = JSON.stringify(state);
     const sizeKB = Math.round(json.length/1024);
-    const CHUNK_SIZE = 30000;
-    const chunks = [];
-    for(let i = 0; i < json.length; i += CHUNK_SIZE){
-      chunks.push(json.slice(i, i + CHUNK_SIZE));
-    }
 
-    for(let ci = 0; ci < chunks.length; ci++){
-      const params = new URLSearchParams({
-        action: 'saveBackup',
-        data: chunks[ci],
-        chunkIndex: ci,
-        totalChunks: chunks.length,
-        isFirst: ci === 0 ? '1' : '0'
-      });
-      const res = await fetch(url + '?' + params.toString());
-      const result = await res.json();
-      if(!result.ok) throw new Error(result.error || 'Save failed on chunk '+ci);
-      if(ci < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
-    }
+    // POST — no URL size limit
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'saveBackup', data: json })
+    });
+    const result = await res.json();
+    if(!result.ok) throw new Error(result.error || 'Save failed');
 
     // Update UI
     const now = new Date().toLocaleTimeString();
