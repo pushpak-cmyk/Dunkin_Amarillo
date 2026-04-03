@@ -715,10 +715,15 @@ function buildScheduleGrid(deployedShifts, dayDates) {
 
   // Only show Add to Calendar if there are actual shifts
   const hasShifts = deployedShifts.some(s => dayMap[s.day]);
+
+  // Store shift data in a global map keyed by a unique ID to avoid inline JSON issues
+  const calId = 'cal_' + Date.now();
+  if(hasShifts) window._calData = window._calData || {};
+  if(hasShifts) window._calData[calId] = { shifts: deployedShifts, dayDates };
+
   const calBtn = hasShifts ? `
-    <button onclick="downloadICS(${JSON.stringify(deployedShifts).replace(/'/g,'&#39;')}, ${JSON.stringify(dayDates).replace(/'/g,'&#39;')})"
-      style="width:100%;margin-top:8px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--ios-font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s"
-      onmousedown="this.style.background='var(--surface3)'" onmouseup="this.style.background='var(--surface2)'">
+    <button onclick="downloadICS('${calId}')"
+      style="width:100%;margin-top:8px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--ios-font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
       <span style="font-size:16px">📅</span> Add to Calendar
     </button>` : '';
 
@@ -730,7 +735,11 @@ function buildScheduleGrid(deployedShifts, dayDates) {
 }
 
 // ── Generate and download ICS calendar file ──────────────────
-function downloadICS(shifts, dayDates) {
+function downloadICS(calId) {
+  const calEntry = (window._calData || {})[calId];
+  if(!calEntry){ alert('Calendar data not found — please reload the page.'); return; }
+  const shifts = calEntry.shifts;
+  const dayDates = calEntry.dayDates;
   const empName = state.emp ? state.emp.name : 'Employee';
   const storeName = "Dunkin'";
   const storeAddress = "2823 Western Ave, Amarillo, TX";
