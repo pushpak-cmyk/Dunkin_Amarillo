@@ -682,14 +682,16 @@ function showMoreWeeks() {
 
 function normalizeWeekKey(val) {
   if(!val) return null;
-  if(val instanceof Date) {
-    return val.getFullYear()+'-'+String(val.getMonth()+1).padStart(2,'0')+'-'+String(val.getDate()).padStart(2,'0');
+  let d;
+  if(val instanceof Date) { d = val; }
+  else {
+    const s = val.toString().trim();
+    d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T12:00:00') : new Date(s);
   }
-  const s = val.toString().trim();
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const d = new Date(s);
-  if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
-  return null;
+  if(isNaN(d.getTime())) return null;
+  // Always normalize to Monday
+  const mon = getMondayOf(d);
+  return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
 }
 
 function buildScheduleGrid(deployedShifts, dayDates, compact) {
