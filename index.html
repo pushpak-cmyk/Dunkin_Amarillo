@@ -1055,78 +1055,7 @@ function showStatus(id, type, msg) {
 }
 </script>
 
-<!-- Manager Reset Tool (hidden at bottom, for testing only) -->
-<div id="reset-section" style="position:fixed;bottom:16px;right:16px;z-index:999">
-  <button onclick="openManagerTools()"
-    style="background:rgba(0,0,0,0.06);color:var(--muted);border:none;border-radius:10px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:var(--ios-font);font-weight:500;backdrop-filter:blur(10px)">
-    ⚙️ Manager
-  </button>
-  <div id="reset-panel" style="display:none;background:#fff;border:none;border-radius:16px;padding:16px;margin-top:8px;min-width:260px;box-shadow:0 4px 20px rgba(0,0,0,0.15)">
-    <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:10px">⚠ Reset All Google Sheet Data</div>
-    <div style="font-size:11px;color:#888;margin-bottom:12px;line-height:1.5">
-      Wipes all submissions, locked weeks, deployed schedules and clock numbers. Keeps sheet headers. Use for testing only.
-    </div>
-    <button onclick="resetAllSheetData()"
-      style="background:#7f1d1d;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%">
-      🗑 Reset All Data
-    </button>
-    <div id="reset-status" style="margin-top:8px;font-size:10px;color:#888"></div>
-  </div>
-</div>
 
-<script>
-// ── Manager Tools password ──
-// Change this to your own password
-const MANAGER_PASSWORD = "dunkin2026";
-let managerUnlocked = false;
-
-function openManagerTools() {
-  if (managerUnlocked) {
-    const panel = document.getElementById('reset-panel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    return;
-  }
-  const entered = prompt("Enter manager password:");
-  if (entered === null) return; // cancelled
-  if (entered === MANAGER_PASSWORD) {
-    managerUnlocked = true;
-    document.getElementById('reset-panel').style.display = 'block';
-  } else {
-    alert("Incorrect password.");
-  }
-}
-
-// Show manager tools with keyboard shortcut: Ctrl+Shift+M
-document.addEventListener('keydown', e => {
-  if(e.ctrlKey && e.shiftKey && e.key === 'M') {
-    const sec = document.getElementById('reset-section');
-    sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
-  }
-});
-
-async function resetAllSheetData() {
-  if(!confirm('⚠ This will DELETE ALL data in the Google Sheet (submissions, locks, schedules, clock numbers).\n\nAre you absolutely sure?')) return;
-  if(!confirm('Last chance — this cannot be undone. Continue?')) return;
-
-  const statusEl = document.getElementById('reset-status');
-  statusEl.textContent = '⏳ Resetting...';
-
-  try {
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=resetAllData&confirm=YES_DELETE_ALL`);
-    const data = await res.json();
-    if(data.ok){
-      statusEl.style.color = '#34d399';
-      statusEl.textContent = '✅ Done! ' + (data.details||[]).join(', ');
-    } else {
-      statusEl.style.color = '#f87171';
-      statusEl.textContent = '❌ ' + (data.error||'Failed');
-    }
-  } catch(e) {
-    statusEl.style.color = '#f87171';
-    statusEl.textContent = '❌ ' + e.message;
-  }
-}
-</script>
 
 </body>
 </html>
