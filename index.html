@@ -643,9 +643,9 @@ async function renderAllWeeks() {
     weeksToShow.push({ mon, wk, isPast: false, isCurrentWeek: i === 0 });
   }
 
-  // Fetch team schedules for all weeks that have my shifts OR are locked
+  // Fetch team schedules for all weeks that have my shifts
   const weeksNeedingTeam = weeksToShow
-    .filter(w => myShiftsByWeek[w.wk] || (state.lockedWeeks && state.lockedWeeks.includes(w.wk)))
+    .filter(w => myShiftsByWeek[w.wk] && myShiftsByWeek[w.wk].length > 0)
     .map(w => w.wk);
 
   await Promise.all(weeksNeedingTeam.map(async wk => {
@@ -722,11 +722,13 @@ function buildTeamScheduleSection(teamSchedule, dayDates) {
   DAYS_SHORT.forEach(d => byDay[d] = []);
 
   // teamSchedule = { empId: [ {day, start, end, role}, ... ] }
-  // We need roster names — use ROSTER global (loaded at login)
+  // Look up names from ROSTER global
+  const rosterLookup = {};
+  if(typeof ROSTER !== 'undefined') ROSTER.forEach(e => { rosterLookup[e.id] = e.name; });
+
   for(const [empId, shifts] of Object.entries(teamSchedule)){
     if(!Array.isArray(shifts)) continue;
-    const emp = (typeof ROSTER !== 'undefined' ? ROSTER : []).find(e => e.id === empId);
-    const name = emp ? emp.name : empId;
+    const name = rosterLookup[empId] || empId;
     shifts.forEach(s => {
       if(byDay[s.day]) byDay[s.day].push({ name, start: s.start, end: s.end, role: s.role || '' });
     });
@@ -793,7 +795,7 @@ function buildWeekPanel(mon, wkKey, isCurrentWeek, deployedShifts, teamSchedule,
     ${lockBadge}
   </div>`;
 
-  if(isCurrentWeek || isLocked || isPast) {
+  if(isCurrentWeek || isLocked || isPast || (deployedShifts && deployedShifts.length > 0)) {
     // ── Show this employee's personal schedule ──
     const mySchedHtml = buildScheduleGrid(deployedShifts, dayDates, true);
 
